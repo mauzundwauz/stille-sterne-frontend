@@ -7,7 +7,7 @@ export default function DashboardPage() {
     <main className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-5xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-800 mb-4">
-          Willkommen im Stille Sterne Dashboard ✨
+          Willkommen beim Stille Sterne Dashboard ✨
         </h1>
         <p className="text-gray-600 mb-8">
           Hier verwalten Sie Gedenkseiten, QR-Plaketten und Ihre Bestellungen.
