@@ -1,64 +1,74 @@
-// app/login/page.tsx
 'use client'
 
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabaseClient'
 
 export default function LoginPage() {
+  const supabase = createClientComponentClient()
   const router = useRouter()
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
+    setLoading(true)
     setError('')
 
     const { error } = await supabase.auth.signInWithPassword({
       email,
-      password
+      password,
     })
 
     if (error) {
-      setError('Login fehlgeschlagen. Bitte prüfe deine Zugangsdaten.')
+      setError(error.message)
     } else {
       router.push('/dashboard')
     }
+
+    setLoading(false)
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
-      <form onSubmit={handleLogin} className="bg-white p-6 rounded shadow-md w-full max-w-md">
-        <h1 className="text-2xl font-bold mb-4 text-center">Login – Stille Sterne</h1>
-        {error && <p className="text-red-500 mb-2">{error}</p>}
-        <label className="block mb-2">
-          <span className="text-gray-700">E-Mail</span>
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            className="mt-1 block w-full p-2 border border-gray-300 rounded"
-          />
-        </label>
-        <label className="block mb-4">
-          <span className="text-gray-700">Passwort</span>
-          <input
-            type="password"
-            required
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            className="mt-1 block w-full p-2 border border-gray-300 rounded"
-          />
-        </label>
-        <button
-          type="submit"
-          className="w-full bg-black text-white p-2 rounded hover:bg-gray-800 transition"
-        >
-          Einloggen
-        </button>
-      </form>
-    </main>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <div className="max-w-md w-full bg-white shadow-md rounded p-8">
+        <h1 className="text-2xl font-semibold text-center mb-6">Login</h1>
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium">E-Mail-Adresse</label>
+            <input
+              type="email"
+              required
+              className="mt-1 w-full border px-3 py-2 rounded"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Passwort</label>
+            <input
+              type="password"
+              required
+              className="mt-1 w-full border px-3 py-2 rounded"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+
+          {error && <p className="text-red-500 text-sm">{error}</p>}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-black text-white py-2 rounded hover:bg-gray-800 transition"
+          >
+            {loading ? 'Einloggen...' : 'Einloggen'}
+          </button>
+        </form>
+      </div>
+    </div>
   )
 }
