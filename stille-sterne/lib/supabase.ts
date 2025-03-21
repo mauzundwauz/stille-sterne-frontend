@@ -1,6 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    redirectTo: 'https://stille-sterne-frontend.vercel.app/dashboard',
+  },
+})
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export default supabase
