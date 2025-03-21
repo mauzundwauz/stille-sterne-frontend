@@ -1,1 +1,0 @@
-# Stille Sterne – Starter Frontend mit Next.js + Supabase
