@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabaseClient'
+import Link from 'next/link'
 
-type DetailRow = {
+type Summary = {
   monat: string
   anzahl_gedenkseiten: number
   anzahl_plaketten: number
@@ -14,28 +15,26 @@ type DetailRow = {
   status: string
 }
 
-export default function BestatterDetail() {
+export default function BestatterDetailPage() {
   const supabase = createClient()
   const { id } = useParams()
-  const [data, setData] = useState<DetailRow[]>([])
-  const [bestatterName, setBestatterName] = useState<string>('...')
+  const [data, setData] = useState<Summary[]>([])
+  const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!id) return
 
     const fetchDetails = async () => {
-      const { data: user, error: userError } = await supabase
+      const { data: userData, error: userError } = await supabase
         .from('users')
         .select('email')
         .eq('id', id)
         .single()
 
-      if (!userError) {
-        setBestatterName(user.email)
-      }
+      if (userData) setEmail(userData.email)
 
-      const { data: summary, error } = await supabase
+      const { data, error } = await supabase
         .from('order_summary')
         .select('*')
         .eq('user_id', id)
@@ -43,10 +42,10 @@ export default function BestatterDetail() {
 
       if (error) {
         console.error(error)
-        return
+      } else {
+        setData(data)
       }
 
-      setData(summary)
       setLoading(false)
     }
 
@@ -57,29 +56,30 @@ export default function BestatterDetail() {
 
   return (
     <div className="p-6">
-      <h1 className="text-xl font-bold mb-4">Details für {bestatterName}</h1>
-      <table className="min-w-full bg-white border border-gray-300 text-sm">
+      <h1 className="text-xl font-bold mb-2">📋 Monatsübersicht für: {email}</h1>
+      <Link href="/admin/dashboard" className="text-sm text-blue-600 underline mb-4 inline-block">← Zurück zum Dashboard</Link>
+      <table className="min-w-full border border-gray-300 text-sm bg-white">
         <thead>
           <tr className="bg-gray-100">
             <th className="p-2 border">Monat</th>
             <th className="p-2 border">Gedenkseiten</th>
             <th className="p-2 border">Plaketten</th>
-            <th className="p-2 border">Umsatz Seiten</th>
-            <th className="p-2 border">Umsatz Plaketten</th>
-            <th className="p-2 border">Gesamt</th>
+            <th className="p-2 border">Seiten €</th>
+            <th className="p-2 border">Plaketten €</th>
+            <th className="p-2 border">Gesamt €</th>
             <th className="p-2 border">Status</th>
           </tr>
         </thead>
         <tbody>
-          {data.map((entry) => (
-            <tr key={entry.monat}>
-              <td className="p-2 border">{entry.monat}</td>
-              <td className="p-2 border text-center">{entry.anzahl_gedenkseiten}</td>
-              <td className="p-2 border text-center">{entry.anzahl_plaketten}</td>
-              <td className="p-2 border text-right">{entry.summe_gedenkseiten.toFixed(2)} €</td>
-              <td className="p-2 border text-right">{entry.summe_plaketten.toFixed(2)} €</td>
-              <td className="p-2 border text-right font-semibold">{entry.gesamt.toFixed(2)} €</td>
-              <td className="p-2 border capitalize">{entry.status}</td>
+          {data.map((row) => (
+            <tr key={row.monat}>
+              <td className="p-2 border text-center">{row.monat}</td>
+              <td className="p-2 border text-center">{row.anzahl_gedenkseiten}</td>
+              <td className="p-2 border text-center">{row.anzahl_plaketten}</td>
+              <td className="p-2 border text-right">{row.summe_gedenkseiten.toFixed(2)} €</td>
+              <td className="p-2 border text-right">{row.summe_plaketten.toFixed(2)} €</td>
+              <td className="p-2 border text-right font-semibold">{row.gesamt.toFixed(2)} €</td>
+              <td className="p-2 border capitalize">{row.status}</td>
             </tr>
           ))}
         </tbody>
