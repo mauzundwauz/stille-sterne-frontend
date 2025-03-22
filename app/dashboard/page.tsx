@@ -27,22 +27,34 @@ export default function DashboardPage() {
   const [session, setSession] = useState<Session | null>(null)
   const [monat, setMonat] = useState<string>(format(new Date(), 'yyyy-MM'))
   const [data, setData] = useState<BestatterUebersicht[]>([])
+  const [subadmins, setSubadmins] = useState<{ id: string; name: string }[]>([])
+  const [selectedSubadmin, setSelectedSubadmin] = useState<string | null>(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session)
     })
+    loadSubadmins()
   }, [])
 
   useEffect(() => {
     if (!session) return
     loadDataFromSupabase(monat)
-  }, [session, monat])
+  }, [session, monat, selectedSubadmin])
+
+  async function loadSubadmins() {
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, name')
+      .eq('role', 'subadmin')
+
+    if (!error && data) setSubadmins(data)
+  }
 
   async function loadDataFromSupabase(monat: string) {
     const { data, error } = await supabase
       .from('order_summary')
-      .select('user_id, monat, anzahl_gedenkseiten, anzahl_plaketten, summe_gedenkseiten, summe_plaketten, gesamt, status, users(name)')
+      .select('user_id, monat, anzahl_gedenkseiten, anzahl_plaketten, summe_gedenkseiten, summe_plaketten, gesamt, status, users(id, name, subadmin_id)')
       .eq('monat', monat)
 
     if (error) {
@@ -50,7 +62,11 @@ export default function DashboardPage() {
       return
     }
 
-    const transformed = data.map((row: any) => ({
+    const filtered = selectedSubadmin
+      ? data.filter((row: any) => row.users?.subadmin_id === selectedSubadmin)
+      : data
+
+    const transformed = filtered.map((row: any) => ({
       id: row.user_id,
       name: row.users?.name || 'Unbekannt',
       anzahl_gedenkseiten: row.anzahl_gedenkseiten,
@@ -60,6 +76,7 @@ export default function DashboardPage() {
       gesamt: row.gesamt,
       status: row.status
     }))
+
     setData(transformed)
   }
 
@@ -111,6 +128,24 @@ export default function DashboardPage() {
         >
           📄 CSV herunterladen
         </button>
+      </div>
+
+      <div className="mb-6 flex items-center gap-4">
+        <label htmlFor="subadmin">Filter nach Subadmin:</label>
+        <select
+          id="subadmin"
+          value={selectedSubadmin ?? ''}
+          onChange={(e) => {
+            const value = e.target.value
+            setSelectedSubadmin(value === '' ? null : value)
+          }}
+          className="border px-2 py-1 rounded"
+        >
+          <option value="">Alle Subadmins</option>
+          {subadmins.map((s) => (
+            <option key={s.id} value={s.id}>{s.name}</option>
+          ))}
+        </select>
       </div>
 
       <table className="w-full border-collapse border">
