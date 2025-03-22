@@ -9,6 +9,17 @@ import type { Database } from '@/types/supabase'
 import { exportToCSV } from '@/lib/exportToCSV'
 import { saveAs } from 'file-saver'
 import { generatePDFDocument } from '@/lib/pdf/generatePDFDocument'
+import {
+  BarChart,
+  Bar,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer
+} from 'recharts'
 
 type BestatterUebersicht = {
   id: string
@@ -21,40 +32,38 @@ type BestatterUebersicht = {
   status: 'offen' | 'abgerechnet' | 'bezahlt'
 }
 
+type UmsatzDatensatz = {
+  monat: string
+  summe_gedenkseiten: number
+  summe_plaketten: number
+  gesamt: number
+}
+
 export default function DashboardPage() {
   const router = useRouter()
   const supabase = createBrowserClient<Database>()
   const [session, setSession] = useState<Session | null>(null)
   const [monat, setMonat] = useState<string>(format(new Date(), 'yyyy-MM'))
   const [data, setData] = useState<BestatterUebersicht[]>([])
-  const [subadmins, setSubadmins] = useState<{ id: string; name: string }[]>([])
-  const [selectedSubadmin, setSelectedSubadmin] = useState<string | null>(null)
+  const [chartData, setChartData] = useState<UmsatzDatensatz[]>([])
+  const [filter, setFilter] = useState('')
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session)
     })
-    loadSubadmins()
   }, [])
 
   useEffect(() => {
     if (!session) return
     loadDataFromSupabase(monat)
-  }, [session, monat, selectedSubadmin])
-
-  async function loadSubadmins() {
-    const { data, error } = await supabase
-      .from('users')
-      .select('id, name')
-      .eq('role', 'subadmin')
-
-    if (!error && data) setSubadmins(data)
-  }
+    getUmsatzDaten()
+  }, [session, monat])
 
   async function loadDataFromSupabase(monat: string) {
     const { data, error } = await supabase
       .from('order_summary')
-      .select('user_id, monat, anzahl_gedenkseiten, anzahl_plaketten, summe_gedenkseiten, summe_plaketten, gesamt, status, users(id, name, subadmin_id)')
+      .select('user_id, monat, anzahl_gedenkseiten, anzahl_plaketten, summe_gedenkseiten, summe_plaketten, gesamt, status, users(name)')
       .eq('monat', monat)
 
     if (error) {
@@ -62,11 +71,7 @@ export default function DashboardPage() {
       return
     }
 
-    const filtered = selectedSubadmin
-      ? data.filter((row: any) => row.users?.subadmin_id === selectedSubadmin)
-      : data
-
-    const transformed = filtered.map((row: any) => ({
+    const transformed = data.map((row: any) => ({
       id: row.user_id,
       name: row.users?.name || 'Unbekannt',
       anzahl_gedenkseiten: row.anzahl_gedenkseiten,
@@ -76,8 +81,37 @@ export default function DashboardPage() {
       gesamt: row.gesamt,
       status: row.status
     }))
-
     setData(transformed)
+  }
+
+  async function getUmsatzDaten() {
+    const { data, error } = await supabase
+      .from('order_summary')
+      .select('monat, summe_gedenkseiten, summe_plaketten, gesamt')
+      .order('monat', { ascending: true })
+
+    if (error) {
+      console.error('Fehler beim Laden der Umsatzdaten:', error)
+      return
+    }
+
+    const aggregated = data.reduce((acc: Record<string, UmsatzDatensatz>, row) => {
+      if (!acc[row.monat]) {
+        acc[row.monat] = {
+          monat: row.monat,
+          summe_gedenkseiten: 0,
+          summe_plaketten: 0,
+          gesamt: 0
+        }
+      }
+      acc[row.monat].summe_gedenkseiten += row.summe_gedenkseiten
+      acc[row.monat].summe_plaketten += row.summe_plaketten
+      acc[row.monat].gesamt += row.gesamt
+      return acc
+    }, {})
+
+    const result = Object.values(aggregated)
+    setChartData(result)
   }
 
   const handleStatusChange = async (userId: string, newStatus: string) => {
@@ -104,6 +138,10 @@ export default function DashboardPage() {
     saveAs(blob, `Abrechnung_${row.name}_${monat}.pdf`)
   }
 
+  const filteredData = data.filter((row) =>
+    row.name.toLowerCase().includes(filter.toLowerCase())
+  )
+
   if (!session) {
     router.push('/login')
     return null
@@ -122,30 +160,35 @@ export default function DashboardPage() {
           onChange={(e) => setMonat(e.target.value)}
           className="border px-2 py-1 rounded"
         />
+        <input
+          type="text"
+          placeholder="🔍 Nach Bestatter filtern..."
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className="border px-2 py-1 rounded w-64"
+        />
         <button
-          onClick={() => exportToCSV(data, `Abrechnung_${monat}`)}
+          onClick={() => exportToCSV(filteredData, `Abrechnung_${monat}`)}
           className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
         >
           📄 CSV herunterladen
         </button>
       </div>
 
-      <div className="mb-6 flex items-center gap-4">
-        <label htmlFor="subadmin">Filter nach Subadmin:</label>
-        <select
-          id="subadmin"
-          value={selectedSubadmin ?? ''}
-          onChange={(e) => {
-            const value = e.target.value
-            setSelectedSubadmin(value === '' ? null : value)
-          }}
-          className="border px-2 py-1 rounded"
-        >
-          <option value="">Alle Subadmins</option>
-          {subadmins.map((s) => (
-            <option key={s.id} value={s.id}>{s.name}</option>
-          ))}
-        </select>
+      <div className="mb-10">
+        <h2 className="text-xl font-semibold mb-2">📈 Umsatzübersicht (alle Bestatter)</h2>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="monat" />
+            <YAxis unit=" €" />
+            <Tooltip />
+            <Legend />
+            <Bar dataKey="summe_gedenkseiten" fill="#3182CE" name="Gedenkseiten" />
+            <Bar dataKey="summe_plaketten" fill="#38A169" name="Plaketten" />
+            <Line type="monotone" dataKey="gesamt" stroke="#DD6B20" name="Gesamt" />
+          </BarChart>
+        </ResponsiveContainer>
       </div>
 
       <table className="w-full border-collapse border">
@@ -162,7 +205,7 @@ export default function DashboardPage() {
           </tr>
         </thead>
         <tbody>
-          {data.map((row) => (
+          {filteredData.map((row) => (
             <tr key={row.id}>
               <td className="border p-2">{row.name}</td>
               <td className="border p-2 text-center">{row.anzahl_gedenkseiten}</td>
