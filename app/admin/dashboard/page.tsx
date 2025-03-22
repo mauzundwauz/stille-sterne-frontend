@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { createBrowserClient } from '../../../../node_modules/@supabase/ssr'
 import { Session } from '@supabase/auth-js'
 import { format } from 'date-fns'
-import { supabase } from '@/lib/supabaseClient'
-import type { Database } from '@/types/supabase'
-import { exportToCSV } from '@/lib/exportToCSV'
+import type { Database } from '../../../../types/supabase'
+import { exportToCSV } from '../../../../lib/exportToCSV'
 import { saveAs } from 'file-saver'
-import { generatePDFDocument } from '@/lib/pdf/generatePDFDocument'
+import { generatePDFDocument } from '../../../../lib/pdf/generatePDFDocument'
 import {
   BarChart,
   Bar,
@@ -41,6 +41,7 @@ type UmsatzDatensatz = {
 
 export default function DashboardPage() {
   const router = useRouter()
+  const supabase = createBrowserClient<Database>()
   const [session, setSession] = useState<Session | null>(null)
   const [monat, setMonat] = useState<string>(format(new Date(), 'yyyy-MM'))
   const [data, setData] = useState<BestatterUebersicht[]>([])
@@ -109,8 +110,7 @@ export default function DashboardPage() {
       return acc
     }, {})
 
-    const result = Object.values(aggregated)
-    setChartData(result)
+    setChartData(Object.values(aggregated))
   }
 
   const handleStatusChange = async (userId: string, newStatus: string) => {
