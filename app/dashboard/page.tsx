@@ -6,6 +6,8 @@ import { createBrowserClient } from '@supabase/ssr'
 import { Session } from '@supabase/auth-js'
 import { format } from 'date-fns'
 import type { Database } from '@/types/supabase'
+import { Database } from '@/types/supabase'
+
 
 
 type BestatterUebersicht = {
