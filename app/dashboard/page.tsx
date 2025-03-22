@@ -24,6 +24,7 @@ import {
 type BestatterUebersicht = {
   id: string
   name: string
+  subadmin?: string
   anzahl_gedenkseiten: number
   anzahl_plaketten: number
   umsatz_gedenkseiten: number
@@ -47,6 +48,7 @@ export default function DashboardPage() {
   const [data, setData] = useState<BestatterUebersicht[]>([])
   const [chartData, setChartData] = useState<UmsatzDatensatz[]>([])
   const [filter, setFilter] = useState('')
+  const [subadminFilter, setSubadminFilter] = useState('')
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -63,7 +65,7 @@ export default function DashboardPage() {
   async function loadDataFromSupabase(monat: string) {
     const { data, error } = await supabase
       .from('order_summary')
-      .select('user_id, monat, anzahl_gedenkseiten, anzahl_plaketten, summe_gedenkseiten, summe_plaketten, gesamt, status, users(name)')
+      .select('user_id, monat, anzahl_gedenkseiten, anzahl_plaketten, summe_gedenkseiten, summe_plaketten, gesamt, status, users(name, subadmin)')
       .eq('monat', monat)
 
     if (error) {
@@ -74,6 +76,7 @@ export default function DashboardPage() {
     const transformed = data.map((row: any) => ({
       id: row.user_id,
       name: row.users?.name || 'Unbekannt',
+      subadmin: row.users?.subadmin || '',
       anzahl_gedenkseiten: row.anzahl_gedenkseiten,
       anzahl_plaketten: row.anzahl_plaketten,
       umsatz_gedenkseiten: row.summe_gedenkseiten,
@@ -139,7 +142,8 @@ export default function DashboardPage() {
   }
 
   const filteredData = data.filter((row) =>
-    row.name.toLowerCase().includes(filter.toLowerCase())
+    row.name.toLowerCase().includes(filter.toLowerCase()) &&
+    row.subadmin.toLowerCase().includes(subadminFilter.toLowerCase())
   )
 
   if (!session) {
@@ -151,7 +155,7 @@ export default function DashboardPage() {
     <main className="p-8">
       <h1 className="text-2xl font-bold mb-4">📊 Admin Dashboard</h1>
 
-      <div className="mb-6 flex items-center gap-4">
+      <div className="mb-6 flex flex-wrap gap-4 items-center">
         <label htmlFor="monat">Monat:</label>
         <input
           id="monat"
@@ -162,9 +166,16 @@ export default function DashboardPage() {
         />
         <input
           type="text"
-          placeholder="🔍 Nach Bestatter filtern..."
+          placeholder="🔍 Nach Bestattername filtern..."
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
+          className="border px-2 py-1 rounded w-64"
+        />
+        <input
+          type="text"
+          placeholder="🔍 Nach Subadmin filtern (z. B. SDS)..."
+          value={subadminFilter}
+          onChange={(e) => setSubadminFilter(e.target.value)}
           className="border px-2 py-1 rounded w-64"
         />
         <button
