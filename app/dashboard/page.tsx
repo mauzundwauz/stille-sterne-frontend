@@ -7,6 +7,7 @@ import { Session } from '@supabase/auth-js'
 import { format } from 'date-fns'
 import type { Database } from '@/types/supabase'
 import { Database } from '@/types/supabase'
+import { exportToCSV } from '@/lib/exportToCSV'
 
 
 
@@ -91,6 +92,24 @@ export default function DashboardPage() {
           className="border px-2 py-1 rounded"
         />
       </div>
+
+      <div className="flex items-center gap-4 mb-6">
+  <label htmlFor="monat">Monat:</label>
+  <input
+    id="monat"
+    type="month"
+    value={monat}
+    onChange={(e) => setMonat(e.target.value)}
+    className="border px-2 py-1 rounded"
+  />
+  <button
+    onClick={() => exportToCSV(data, `Abrechnung_${monat}`)}
+    className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+  >
+    📄 CSV herunterladen
+  </button>
+</div>
+
 
       <table className="w-full border-collapse border">
         <thead>
