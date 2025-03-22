@@ -1,9 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useSession } from '@supabase/auth-helpers-react'
 import { useRouter } from 'next/navigation'
-import StatusDropdown from '@/components/dashboard/StatusDropdown'
+import { createBrowserClient } from '@supabase/ssr'
+import { Session } from '@supabase/auth-js'
+import { format } from 'date-fns'
+import type { Database } from '@/types/supabase'
+
 
 type BestatterUebersicht = {
   id: string
@@ -17,85 +20,112 @@ type BestatterUebersicht = {
 }
 
 export default function DashboardPage() {
-  const session = useSession()
   const router = useRouter()
+  const supabase = createBrowserClient<Database>()
+  const [session, setSession] = useState<Session | null>(null)
+  const [monat, setMonat] = useState<string>(format(new Date(), 'yyyy-MM'))
   const [data, setData] = useState<BestatterUebersicht[]>([])
-  const [monat, setMonat] = useState('2025-03')
 
   useEffect(() => {
-    if (!session) {
-      router.push('/login')
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session)
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!session) return
+    loadDataFromSupabase(monat)
+  }, [session, monat])
+
+  async function loadDataFromSupabase(monat: string) {
+    const { data, error } = await supabase
+      .from('order_summary')
+      .select('user_id, monat, anzahl_gedenkseiten, anzahl_plaketten, summe_gedenkseiten, summe_plaketten, gesamt, status, users(name)')
+      .eq('monat', monat)
+
+    if (error) {
+      console.error('Fehler beim Laden der Daten:', error)
       return
     }
 
-    // 👇 Beispiel-Daten (später aus Supabase laden)
-    setData([
-      {
-        id: '1',
-        name: 'Bestatter Müller GmbH',
-        anzahl_gedenkseiten: 12,
-        anzahl_plaketten: 9,
-        umsatz_gedenkseiten: 120,
-        umsatz_plaketten: 135,
-        gesamt: 255,
-        status: 'offen',
-      },
-      {
-        id: '2',
-        name: 'Ruhe & Licht Bestattungen',
-        anzahl_gedenkseiten: 8,
-        anzahl_plaketten: 8,
-        umsatz_gedenkseiten: 80,
-        umsatz_plaketten: 120,
-        gesamt: 200,
-        status: 'abgerechnet',
-      },
-    ])
-  }, [session])
+    const transformed = data.map((row: any) => ({
+      id: row.user_id,
+      name: row.users?.name || 'Unbekannt',
+      anzahl_gedenkseiten: row.anzahl_gedenkseiten,
+      anzahl_plaketten: row.anzahl_plaketten,
+      umsatz_gedenkseiten: row.summe_gedenkseiten,
+      umsatz_plaketten: row.summe_plaketten,
+      gesamt: row.gesamt,
+      status: row.status
+    }))
+    setData(transformed)
+  }
+
+  const handleStatusChange = async (userId: string, newStatus: string) => {
+    await supabase
+      .from('order_summary')
+      .update({ status: newStatus })
+      .eq('user_id', userId)
+      .eq('monat', monat)
+    loadDataFromSupabase(monat)
+  }
+
+  if (!session) {
+    router.push('/login')
+    return null
+  }
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-semibold mb-4">📊 Monatsübersicht – {monat}</h1>
+    <main className="p-8">
+      <h1 className="text-2xl font-bold mb-4">📊 Admin Dashboard</h1>
 
-      <div className="mb-6">
-        <label htmlFor="monat" className="mr-2 font-medium">Monat:</label>
+      <div className="mb-6 flex items-center gap-4">
+        <label htmlFor="monat">Monat:</label>
         <input
-          type="month"
           id="monat"
+          type="month"
           value={monat}
           onChange={(e) => setMonat(e.target.value)}
-          className="border rounded px-3 py-1"
+          className="border px-2 py-1 rounded"
         />
       </div>
 
-      <table className="w-full border text-sm">
+      <table className="w-full border-collapse border">
         <thead>
           <tr className="bg-gray-100">
-            <th className="p-2 text-left">Bestatter</th>
-            <th>Anz. Gedenkseiten</th>
-            <th>Anz. QR-Plaketten</th>
-            <th>Umsatz Gedenkseiten</th>
-            <th>Umsatz Plaketten</th>
-            <th>Gesamt</th>
-            <th>Status</th>
+            <th className="border p-2">Bestatter</th>
+            <th className="border p-2">Gedenkseiten</th>
+            <th className="border p-2">Plaketten</th>
+            <th className="border p-2">Umsatz Gedenkseiten</th>
+            <th className="border p-2">Umsatz Plaketten</th>
+            <th className="border p-2">Gesamt</th>
+            <th className="border p-2">Status</th>
           </tr>
         </thead>
         <tbody>
-          {data.map((eintrag) => (
-            <tr key={eintrag.id} className="border-t">
-              <td className="p-2">{eintrag.name}</td>
-              <td className="text-center">{eintrag.anzahl_gedenkseiten}</td>
-              <td className="text-center">{eintrag.anzahl_plaketten}</td>
-              <td className="text-center">{eintrag.umsatz_gedenkseiten} €</td>
-              <td className="text-center">{eintrag.umsatz_plaketten} €</td>
-              <td className="text-center font-semibold">{eintrag.gesamt} €</td>
-              <td className="text-center">
-                <StatusDropdown bestatterId={eintrag.id} status={eintrag.status} />
+          {data.map((row) => (
+            <tr key={row.id}>
+              <td className="border p-2">{row.name}</td>
+              <td className="border p-2 text-center">{row.anzahl_gedenkseiten}</td>
+              <td className="border p-2 text-center">{row.anzahl_plaketten}</td>
+              <td className="border p-2 text-right">{row.umsatz_gedenkseiten.toFixed(2)} €</td>
+              <td className="border p-2 text-right">{row.umsatz_plaketten.toFixed(2)} €</td>
+              <td className="border p-2 text-right font-semibold">{row.gesamt.toFixed(2)} €</td>
+              <td className="border p-2">
+                <select
+                  value={row.status}
+                  onChange={(e) => handleStatusChange(row.id, e.target.value)}
+                  className="border px-2 py-1 rounded"
+                >
+                  <option value="offen">🟡 Offen</option>
+                  <option value="abgerechnet">🟠 Abgerechnet</option>
+                  <option value="bezahlt">🟢 Bezahlt</option>
+                </select>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
-    </div>
+    </main>
   )
 }
