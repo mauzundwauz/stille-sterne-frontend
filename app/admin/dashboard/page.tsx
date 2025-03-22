@@ -1,11 +1,10 @@
-
 'use client'
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabaseClient'
 import { Session } from '@supabase/auth-js'
 import { format } from 'date-fns'
+import { supabase } from '@/lib/supabaseClient'
 import type { Database } from '@/types/supabase'
 import { exportToCSV } from '@/lib/exportToCSV'
 import { saveAs } from 'file-saver'
@@ -42,11 +41,11 @@ type UmsatzDatensatz = {
 
 export default function DashboardPage() {
   const router = useRouter()
-  const supabase = createBrowserClient<Database>() //evtl. noch anpassen 
   const [session, setSession] = useState<Session | null>(null)
   const [monat, setMonat] = useState<string>(format(new Date(), 'yyyy-MM'))
   const [data, setData] = useState<BestatterUebersicht[]>([])
   const [chartData, setChartData] = useState<UmsatzDatensatz[]>([])
+  const [filter, setFilter] = useState('')
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -138,6 +137,10 @@ export default function DashboardPage() {
     saveAs(blob, `Abrechnung_${row.name}_${monat}.pdf`)
   }
 
+  const filteredData = data.filter((row) =>
+    row.name.toLowerCase().includes(filter.toLowerCase())
+  )
+
   if (!session) {
     router.push('/login')
     return null
@@ -156,8 +159,15 @@ export default function DashboardPage() {
           onChange={(e) => setMonat(e.target.value)}
           className="border px-2 py-1 rounded"
         />
+        <input
+          type="text"
+          placeholder="🔍 Nach Bestatter filtern..."
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className="border px-2 py-1 rounded w-64"
+        />
         <button
-          onClick={() => exportToCSV(data, `Abrechnung_${monat}`)}
+          onClick={() => exportToCSV(filteredData, `Abrechnung_${monat}`)}
           className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
         >
           📄 CSV herunterladen
@@ -194,7 +204,7 @@ export default function DashboardPage() {
           </tr>
         </thead>
         <tbody>
-          {data.map((row) => (
+          {filteredData.map((row) => (
             <tr key={row.id}>
               <td className="border p-2">{row.name}</td>
               <td className="border p-2 text-center">{row.anzahl_gedenkseiten}</td>
