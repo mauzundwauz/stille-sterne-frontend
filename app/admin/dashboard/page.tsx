@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createBrowserClient } from '@supabase/ssr'
+import { supabase } from '@/lib/supabaseClient'
 import { Session } from '@supabase/auth-js'
 import { format } from 'date-fns'
 import type { Database } from '@/types/supabase'
@@ -42,7 +42,7 @@ type UmsatzDatensatz = {
 
 export default function DashboardPage() {
   const router = useRouter()
-  const supabase = createBrowserClient<Database>()
+  const supabase = createBrowserClient<Database>() //evtl. noch anpassen 
   const [session, setSession] = useState<Session | null>(null)
   const [monat, setMonat] = useState<string>(format(new Date(), 'yyyy-MM'))
   const [data, setData] = useState<BestatterUebersicht[]>([])
