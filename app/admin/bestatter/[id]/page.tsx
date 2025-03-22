@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabaseClient'
+import { supabase } from '@/lib/supabaseClient' //neuer import wso supabase benutzt wird
 import Link from 'next/link'
 
 type Summary = {
