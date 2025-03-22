@@ -7,6 +7,8 @@ import { Session } from '@supabase/auth-js'
 import { format } from 'date-fns'
 import type { Database } from '@/types/supabase'
 import { exportToCSV } from '@/lib/exportToCSV'
+import { saveAs } from 'file-saver'
+import { generatePDFDocument } from '@/lib/pdf/generatePDFDocument'
 
 type BestatterUebersicht = {
   id: string
@@ -70,6 +72,21 @@ export default function DashboardPage() {
     loadDataFromSupabase(monat)
   }
 
+  const handlePDFDownload = async (row: BestatterUebersicht) => {
+    const blob = await generatePDFDocument({
+      name: row.name,
+      monat,
+      anzahlGedenkseiten: row.anzahl_gedenkseiten,
+      anzahlPlaketten: row.anzahl_plaketten,
+      preisGedenkseite: 10,
+      preisPlakette: 15,
+      gesamtSumme: row.gesamt,
+      status: row.status
+    })
+
+    saveAs(blob, `Abrechnung_${row.name}_${monat}.pdf`)
+  }
+
   if (!session) {
     router.push('/login')
     return null
@@ -106,6 +123,7 @@ export default function DashboardPage() {
             <th className="border p-2">Umsatz Plaketten</th>
             <th className="border p-2">Gesamt</th>
             <th className="border p-2">Status</th>
+            <th className="border p-2">PDF</th>
           </tr>
         </thead>
         <tbody>
@@ -127,6 +145,14 @@ export default function DashboardPage() {
                   <option value="abgerechnet">🟠 Abgerechnet</option>
                   <option value="bezahlt">🟢 Bezahlt</option>
                 </select>
+              </td>
+              <td className="border p-2 text-center">
+                <button
+                  onClick={() => handlePDFDownload(row)}
+                  className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded"
+                >
+                  📄
+                </button>
               </td>
             </tr>
           ))}
